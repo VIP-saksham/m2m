@@ -1,0 +1,32 @@
+# Local environment files and secrets
+backend/.env
+frontend/.env
+.env
+.env.*
+!.env.example
+
+# Python
+backend/venv/
+**/__pycache__/
+**/*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# JavaScript/build output
+frontend/node_modules/
+frontend/dist/
+npm-debug.log*
+
+# Local application data
+backend/instance/
+backend/uploads/
+uploads/
+*.db
+*.sqlite
+*.sqlite3
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,13 @@
+# .gitignore
+__pycache__/
+*.pyc
+venv/
+env/
+.env
+uploads/*
+!uploads/.gitkeep
+migrations/*
+!migrations/.gitkeep
+m2m.db
+.pytest_cache/
+

@@ -1,0 +1,393 @@
+M2M MITTI TO MARKET - PROJECT KNOWLEDGE
+=======================================
+
+This file explains what the project does, why each major part exists, and how
+the main user flows work. It is written as a quick handover document for a
+developer, tester, or project owner.
+
+
+1. PROJECT PURPOSE
+-------------------
+
+Mitti to Market (M2M) connects farmers directly with buyers and processors.
+The goal is to reduce information gaps, help farmers decide when and where to
+sell, and make procurement easier for businesses.
+
+The application has three main user experiences:
+
+- Farmer: adds produce, receives AI-assisted guidance, and sells or joins lots.
+- Buyer & Processor: posts requirements and purchases available produce.
+- Admin: manages accounts, content, verification, safety, and audit activity.
+
+The product also includes a community marketplace where eligible users can list,
+search, like, and message about produce.
+
+
+2. HOW THE APPLICATION IS SPLIT
+--------------------------------
+
+There are two applications:
+
+FRONTEND
+  Location: frontend/
+  Technology: React, Vite, React Router, Axios, React Query, Tailwind CSS
+  Purpose: screens, forms, navigation, role-based pages, and user interaction.
+  Port: 5173
+
+BACKEND
+  Location: backend/
+  Technology: Flask, SQLAlchemy, JWT, Flask-CORS, SQLite
+  Purpose: authentication, database operations, business rules, AI services,
+  notifications, moderation, and API responses.
+  Port: 5000
+
+The frontend must call the backend through VITE_API_URL. In local development
+the correct value is:
+
+  http://localhost:5000
+
+
+3. USER REGISTRATION AND LOGIN
+------------------------------
+
+Normal registration is active. OTP is not part of the current flow.
+
+Required registration fields:
+
+- Full name
+- Phone number
+- Email
+- Role
+- Password
+- Confirm password
+
+Phone and email are both mandatory. The backend prevents duplicate phone
+numbers and duplicate email addresses. A successful registration returns a JWT
+token and signs the user in immediately.
+
+Login accepts an email or phone identifier and a password. The JWT is stored
+in browser local storage and sent to protected API requests.
+
+Google Sign-In is optional. When configured, Google sends an ID token to the
+backend. The backend verifies the token signature, issuer, audience, expiry, and
+email verification before linking or creating the local account.
+
+If a new Google account has no role, the user chooses a role and phone number
+before entering the application.
+
+
+4. ROLES
+--------
+
+FARMER
+  Can create and manage produce batches, publish produce, run assessment,
+  generate decisions, respond to procurement lots, use market/storage pages,
+  and communicate through the community.
+
+BUYER & PROCESSOR
+  Can post demands, search available supply, create or review matches, manage
+  procurement lots, confirm or reject lots, and message sellers.
+
+PROCESSOR (LEGACY)
+  Older database users may still have role=processor. The frontend normalizes
+  this to buyer behavior so there is one public Buyer & Processor experience.
+
+FPO
+  Supported during registration and in the user model. Additional FPO-specific
+  screens can be expanded later.
+
+ADMIN
+  Can view platform activity, manage accounts, moderate content, send
+  notifications, remove content softly, and inspect audit logs.
+
+
+5. FARMER FLOW
+---------------
+
+CREATE BATCH
+  The farmer enters crop, quantity, unit, harvest date, availability dates,
+  location, expected price, optional price range, description, quality, and
+  maturity. An image can also be uploaded.
+
+ASSESSMENT
+  The assessment service reads image signals when an image is provided. OpenCV
+  extracts basic brightness, edge, and defect-related signals. Optional PyTorch
+  preprocessing is used only when a compatible installation is available.
+  The result is a cautious estimated Grade A, B, or C, maturity, spoilage risk,
+  confidence, selling window, and price range.
+
+DECISION
+  The decision engine combines batch details, assessment output, dates, risk,
+  and market context. It recommends SELL, STORE, or PROCESS. This is a
+  decision-support estimate and does not replace a local expert or lab result.
+
+SELL NOW
+  Sell now changes the batch status to available. Available farmer batches
+  appear in the community Buy & Sell feed. Buyers can view permitted listing
+  information, like the listing, and start a conversation.
+
+OPPORTUNITIES AND LOTS
+  Open buyer demands appear in Farmer Opportunities. Matching crop and
+  quantity information helps a farmer choose a relevant buyer. Procurement lots
+  contain the matched produce and allow the farmer to accept or decline.
+
+
+6. BUYER AND PROCESSOR FLOW
+----------------------------
+
+CREATE DEMAND
+  A buyer enters the crop, required quantity, price range, delivery region,
+  deadline, and other requirement details.
+
+MATCHING
+  The matching engine compares open demands with available or suitable farmer
+  batches. It creates procurement lots and batch mappings when supply fits the
+  requirement.
+
+LOT MANAGEMENT
+  The buyer can inspect a lot, confirm it, or reject it. Farmers can respond to
+  their part of the lot. Status changes and responses create notifications for
+  the relevant account.
+
+COMMUNITY
+  Buyers can search the marketplace, like eligible farmer listings, and send
+  messages. A buyer cannot act as a seller on a farmer listing. Role checks are
+  enforced in the backend, not only in the UI.
+
+
+7. COMMUNITY AND CHAT
+----------------------
+
+The community is the Buy & Sell and communication area.
+
+- Listings can show anonymous seller labels instead of exposing unnecessary
+  personal details.
+- Server-side search supports crop and text searches.
+- Likes are persisted in the database.
+- Conversations and messages are persisted in the database.
+- Polling refreshes the feed, conversations, and messages while the user is on
+  those screens.
+- Backend permission checks prevent a seller from liking or messaging their own
+  listing and prevent an invalid role from creating a listing.
+
+The community is designed to make a first contact safe and simple. Users should
+still verify quantity, quality, price, location, and payment terms before any
+offline transaction.
+
+
+8. M2M SAHAYAK AND AI
+----------------------
+
+M2M Sahayak is the in-app assistant for farmers. It can answer questions about
+crop handling, selling, storage, market signals, and the user's recent batch
+context.
+
+The backend assistant has two modes:
+
+1. Configured LLM mode
+   Used only when LLM_API_URL, LLM_API_KEY, and LLM_MODEL are all configured.
+   The request is made server-side so the key is not exposed in the browser.
+
+2. Local fallback mode
+   Gives deterministic guidance and prediction-style responses when no provider
+   is configured or the provider is unavailable.
+
+The assistant and image assessment must be treated as decision support. They
+must not promise a guaranteed price, guaranteed profit, or guaranteed grade.
+
+
+9. ADMIN AND SAFETY
+--------------------
+
+ADMIN ACCOUNT MANAGEMENT
+  Admin can verify users, suspend accounts, reinstate accounts, and soft-remove
+  accounts. Admin accounts are protected from ordinary removal actions.
+
+CONTENT MANAGEMENT
+  Admin can soft-remove batches and buyer demands. The owner receives a
+  notification and the action is recorded in audit logs.
+
+MODERATION
+  The moderation scanner looks for suspicious patterns such as guaranteed
+  profit, advance fee requests, OTP/password requests, double-money claims, and
+  similar scam indicators. It flags content for review instead of silently
+  deleting legitimate content.
+
+NOTIFICATIONS
+  Notifications are stored in the database. They are used for account actions,
+  lot responses, content removal, and other important workflow events.
+
+
+10. DATABASE AND UPLOADS
+-------------------------
+
+Development database:
+
+  backend/instance/m2m.db
+
+Uploaded images:
+
+  backend/uploads/
+
+The database and uploads contain local project data. Do not delete them during
+normal source cleanup. Back them up before any schema or data experiment.
+
+The app creates tables on startup and includes small compatibility migrations
+for development databases that are missing newer columns.
+
+
+11. IMPORTANT API AREAS
+-----------------------
+
+/api/auth
+  Registration, login, current user, profile, logout, Google config, Google
+  sign-in.
+
+/api/batches
+  Farmer batch CRUD, image upload, assessment, decision, and publishing.
+
+/api/demands
+  Buyer requirements and demand matching.
+
+/api/procurement-lots
+  Lot listing, detail, buyer confirmation/rejection, and farmer response.
+
+/api/community
+  Buy & Sell listings, likes, conversations, messages, and search.
+
+/api/notifications
+  Notification listing, read state, and notification actions.
+
+/api/assistant
+  M2M Sahayak assistant requests.
+
+/api/admin
+  Admin statistics, users, moderation, removal, notifications, and audit data.
+
+/api/market and /api/storage
+  Market intelligence and storage discovery.
+
+/health
+  Simple backend health check. It should return success=true and status=ok.
+
+
+12. STARTING THE PROJECT
+-------------------------
+
+Backend:
+
+  cd C:\Users\user\Pictures\frm\backend
+  .\venv\Scripts\Activate.ps1
+  python run.py
+
+Frontend in another terminal:
+
+  cd C:\Users\user\Pictures\frm\frontend
+  npm run dev
+
+Open:
+
+  http://localhost:5173
+
+
+13. TESTING
+-----------
+
+Backend:
+
+  cd C:\Users\user\Pictures\frm\backend
+  python -m pytest
+
+Frontend build:
+
+  cd C:\Users\user\Pictures\frm\frontend
+  npm run build
+
+The backend tests cover authentication, Google authentication, batches,
+decisions, lots, and matching.
+
+
+14. COMMON PROBLEMS
+-------------------
+
+"Cannot reach the server"
+  Start backend with python run.py. Then open
+  http://localhost:5000/health. Confirm frontend/.env points to
+  http://localhost:5000 and restart Vite.
+
+"Google Sign-In is not configured"
+  Set GOOGLE_CLIENT_ID in backend/.env and restart the backend.
+
+"The given origin is not allowed for the given client ID"
+  In Google Cloud Console add:
+
+    http://localhost:5173
+    http://127.0.0.1:5173
+
+  to Authorized JavaScript origins for the same OAuth Web Client.
+
+"Failed to create batch"
+  Check backend health, login token, required batch fields, quantity, crop,
+  and valid availability dates. The backend error message is shown in the UI.
+
+
+15. SECURITY RULES
+------------------
+
+- Never put private API keys in frontend source code.
+- Never commit .env files containing real secrets.
+- Rotate any key that was exposed.
+- Keep LLM, Gemini, database, and JWT secrets server-side.
+- Do not trust frontend role checks alone; backend authorization must remain
+  enabled.
+- AI output is an estimate and must not be presented as a guarantee.
+- Prefer soft removal and audit logs for user-generated content.
+
+
+16. FILE OWNERSHIP GUIDE
+-------------------------
+
+frontend/src/App.jsx
+  Application routes and protected role rules.
+
+frontend/src/services/api.js
+  Central Axios client and API helper methods.
+
+frontend/src/context/AuthContext.jsx
+  Browser session, JWT storage, login, logout, and user normalization.
+
+frontend/src/layouts/
+  Sidebar, topbar, notifications, profile, and sign-out controls by role.
+
+backend/app/routes/
+  HTTP endpoints and request authorization.
+
+backend/app/models/
+  Database tables and serialization.
+
+backend/app/services/
+  Business logic that should not be duplicated in route files.
+
+backend/app/config.py
+  Environment-backed application settings.
+
+backend/app/__init__.py
+  Flask app creation, extensions, CORS, routes, and database startup setup.
+
+
+17. CURRENT PROJECT STATUS
+---------------------------
+
+The local application has been checked with:
+
+- Full backend test suite: passing
+- Frontend production build: passing
+- Backend health endpoint: passing
+- Auth config endpoint: passing
+- Farmer demo login and logout: passing
+- Buyer demo login and logout: passing
+- Admin demo login and logout: passing
+- Registration form: loading with mandatory phone and email
+
+Google login still depends on the OAuth origins being configured in Google
+Cloud Console. Normal email/phone login does not depend on that setting.
