@@ -278,9 +278,18 @@ def demo_login():
     if role not in VALID_ROLES:
         return _error('400', 'Valid role is required', 400)
 
-    user = User.query.filter_by(role=role).first()
-    if not user and role == 'buyer':
-        user = User(name='Demo Buyer', email='buyer@m2m.demo', phone='9999999988', role='buyer', verification_status='verified')
+    demo_accounts = {
+        'farmer': ('Demo Farmer', 'farmer@m2m.demo', '9999999991'),
+        'buyer': ('Demo Buyer', 'buyer@m2m.demo', '9999999988'),
+        'admin': ('Demo Admin', 'admin@m2m.demo', '9999999999'),
+    }
+    account = demo_accounts.get(role)
+    user = User.query.filter_by(email=account[1]).first() if account else None
+    if not user and account:
+        phone = account[2]
+        while User.query.filter_by(phone=phone).first():
+            phone = str(int(phone) + 1)
+        user = User(name=account[0], email=account[1], phone=phone, role=role, verification_status='verified')
         user.set_password('Buyer@123')
         db.session.add(user)
         db.session.commit()

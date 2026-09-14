@@ -202,24 +202,22 @@ def create_app(config_class=Config):
     with flask_app.app_context():
         import app.models
         db.create_all()
-        # Compatibility columns for existing SQLite development databases.
+        # Keep existing development and production databases compatible with new fields.
         from sqlalchemy import inspect, text
         columns = {column['name'] for column in inspect(db.engine).get_columns('users')}
-        # Keep existing SQLite development databases compatible with new profile fields.
-        columns = {row[1] for row in db.session.execute(db.text("PRAGMA table_info(users)")).fetchall()}
         if 'avatar_path' not in columns:
-            db.session.execute(db.text("ALTER TABLE users ADD COLUMN avatar_path VARCHAR(500)"))
+            db.session.execute(text("ALTER TABLE users ADD COLUMN avatar_path VARCHAR(500)"))
             db.session.commit()
-        batch_columns = {row[1] for row in db.session.execute(db.text("PRAGMA table_info(produce_batches)")).fetchall()}
+        batch_columns = {column['name'] for column in inspect(db.engine).get_columns('produce_batches')}
         for column in ('asking_price_min', 'asking_price_max'):
             if column not in batch_columns:
-                db.session.execute(db.text(f"ALTER TABLE produce_batches ADD COLUMN {column} FLOAT"))
+                db.session.execute(text(f"ALTER TABLE produce_batches ADD COLUMN {column} FLOAT"))
         if 'listing_description' not in batch_columns:
-            db.session.execute(db.text("ALTER TABLE produce_batches ADD COLUMN listing_description TEXT"))
-        user_columns = {row[1] for row in db.session.execute(db.text("PRAGMA table_info(users)")).fetchall()}
+            db.session.execute(text("ALTER TABLE produce_batches ADD COLUMN listing_description TEXT"))
+        user_columns = {column['name'] for column in inspect(db.engine).get_columns('users')}
         if 'google_sub' not in user_columns:
-            db.session.execute(db.text("ALTER TABLE users ADD COLUMN google_sub VARCHAR(255)"))
-            db.session.execute(db.text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_google_sub ON users (google_sub)"))
+            db.session.execute(text("ALTER TABLE users ADD COLUMN google_sub VARCHAR(255)"))
+            db.session.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_google_sub ON users (google_sub)"))
         db.session.commit()
 
     # =====================================================
