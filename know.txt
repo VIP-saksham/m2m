@@ -1,5 +1,5 @@
 M2M MITTI TO MARKET - PROJECT KNOWLEDGE
-=======================================
+======================================= 
 
 This file explains what the project does, why each major part exists, and how
 the main user flows work. It is written as a quick handover document for a
